@@ -1,0 +1,31 @@
+# Environment variables and credentials
+.env
+.env.local
+.env.*
+!.env.example
+live
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build and Distribution outputs
+dist/
+build/
+*.apk
+*.aab
+
+# Flutter & Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+# IDE and OS files
+.DS_Store
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

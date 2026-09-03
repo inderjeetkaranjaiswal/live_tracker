@@ -1,0 +1,100 @@
+const http = require('http');
+const assert = require('assert');
+
+// Test runner helper using node native fetch or http request
+const BASE_URL = 'http://127.0.0.1:5000';
+
+async function runTests() {
+    console.log('--- STARTING BACKEND INTEGRATION TESTS ---');
+
+    try {
+        // 1. Health Check Test
+        console.log('\n[Test 1] GET /health');
+        const healthRes = await fetch(`${BASE_URL}/health`);
+        assert.strictEqual(healthRes.status, 200, 'Health check should return status 200');
+        const healthData = await healthRes.json();
+        console.log('✓ Health check passed:', healthData.status);
+
+        // 2. Register Admin User
+        console.log('\n[Test 2] POST /auth/register (Admin)');
+        const adminEmail = `admin_${Date.now()}@example.com`;
+        const adminRegRes = await fetch(`${BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: 'System Admin',
+                email: adminEmail,
+                password: 'AdminPassword123!',
+                role: 'admin'
+            })
+        });
+        assert.strictEqual(adminRegRes.status, 201, 'Admin registration should return 201');
+        const adminRegData = await adminRegRes.json();
+        const adminToken = adminRegData.token;
+        assert.ok(adminToken, 'Admin token should be generated');
+        console.log('✓ Admin registration passed. Token received.');
+
+        // 3. Register Employee User
+        console.log('\n[Test 3] POST /auth/register (Employee)');
+        const empEmail = `employee_${Date.now()}@example.com`;
+        const empRegRes = await fetch(`${BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: 'John Doe',
+                email: empEmail,
+                password: 'EmployeePassword123!',
+                role: 'employee'
+            })
+        });
+        assert.strictEqual(empRegRes.status, 201, 'Employee registration should return 201');
+        const empRegData = await empRegRes.json();
+        const empToken = empRegData.token;
+        assert.ok(empToken, 'Employee token should be generated');
+        console.log('✓ Employee registration passed. Token received.');
+
+        // 4. Update Location (Employee)
+        console.log('\n[Test 4] POST /location/update (Employee Token)');
+        const locUpdateRes = await fetch(`${BASE_URL}/location/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${empToken}`
+            },
+            body: JSON.stringify({
+                latitude: 37.7749,
+                longitude: -122.4194
+            })
+        });
+        assert.strictEqual(locUpdateRes.status, 200, 'Employee location update should return 200');
+        const locUpdateData = await locUpdateRes.json();
+        assert.strictEqual(locUpdateData.location.latitude, 37.7749);
+        console.log('✓ Employee location update passed.');
+
+        // 5. Test RBAC: Employee trying to view all locations (Should be 403 Forbidden)
+        console.log('\n[Test 5] GET /location/all (Employee Token - Expect 403 Forbidden)');
+        const forbiddenRes = await fetch(`${BASE_URL}/location/all`, {
+            headers: { 'Authorization': `Bearer ${empToken}` }
+        });
+        assert.strictEqual(forbiddenRes.status, 403, 'Employee viewing all locations should be forbidden (403)');
+        console.log('✓ RBAC security test passed: Employee denied access to admin API.');
+
+        // 6. Admin viewing all locations (Should be 200 OK)
+        console.log('\n[Test 6] GET /location/all (Admin Token - Expect 200 OK)');
+        const adminViewRes = await fetch(`${BASE_URL}/location/all`, {
+            headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        assert.strictEqual(adminViewRes.status, 200, 'Admin viewing all locations should return 200');
+        const adminViewData = await adminViewRes.json();
+        assert.ok(Array.isArray(adminViewData.employees), 'Should return array of employees');
+        console.log('✓ Admin location retrieval passed. Total employees:', adminViewData.count);
+
+        console.log('\n🎉 ALL BACKEND TESTS PASSED SUCCESSFULLY!');
+    } catch (err) {
+        console.error('\n❌ Test execution failed:', err);
+        process.exit(1);
+    }
+}
+
+// Give server time to start up if running
+runTests();
