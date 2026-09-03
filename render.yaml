@@ -3,6 +3,7 @@ services:
   - type: web
     name: live-tracker-backend
     env: node
+    plan: free
     rootDir: backend
     buildCommand: npm install
     startCommand: node src/server.js
