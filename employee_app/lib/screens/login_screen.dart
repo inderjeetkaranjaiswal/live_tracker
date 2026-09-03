@@ -228,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _serverUrlController,
                             decoration: InputDecoration(
                               labelText: 'Backend Server URL',
-                              hintText: 'http://172.18.22.40:8080',
+                              hintText: 'https://live-tracker-ahr5.onrender.com',
                               prefixIcon: const Icon(Icons.link),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),

@@ -19,13 +19,9 @@ class AppConfig {
     await prefs.setString('custom_server_url', _customBaseUrl);
   }
 
-  /// Backend API Base URL.
-  /// Default LAN IP for physical mobile device connectivity: http://172.18.22.40:8080
+  /// Backend API Base URL (Render Production Server)
   static String get baseUrl {
     if (_customBaseUrl.isNotEmpty) return _customBaseUrl;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://172.18.22.40:8080';
-    }
-    return 'http://127.0.0.1:8080';
+    return 'https://live-tracker-ahr5.onrender.com';
   }
 }

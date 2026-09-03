@@ -7,7 +7,7 @@ import Sidebar from './components/Sidebar';
 import LiveMap from './components/LiveMap';
 import EmployeeDetailModal from './components/EmployeeDetailModal';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8080';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://live-tracker-ahr5.onrender.com';
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 export default function App() {
