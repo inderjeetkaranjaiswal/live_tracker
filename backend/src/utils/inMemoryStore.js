@@ -1,9 +1,44 @@
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 class InMemoryStore {
   constructor() {
     this.users = new Map();
     this.locations = new Map();
+    this.seedDefaultUsers();
+  }
+
+  seedDefaultUsers() {
+    try {
+      const salt = bcrypt.genSaltSync(10);
+      const adminPasswordHash = bcrypt.hashSync('AdminPassword123!', salt);
+      const userPasswordHash = bcrypt.hashSync('Password123!', salt);
+      const empPasswordHash = bcrypt.hashSync('EmployeePassword123!', salt);
+
+      this.saveUser({
+        name: 'System Administrator',
+        email: 'admin@livetracker.com',
+        password: adminPasswordHash,
+        role: 'admin'
+      });
+
+      this.saveUser({
+        name: 'Inderjeet Karan Jaiswal',
+        email: 'inderjeetkaranjaiswal@gmail.com',
+        password: userPasswordHash,
+        role: 'admin'
+      });
+
+      this.saveUser({
+        name: 'Field Officer John',
+        email: 'employee1@livetracker.com',
+        password: empPasswordHash,
+        role: 'employee'
+      });
+      console.log('[InMemoryStore] Default admin and employee accounts seeded successfully.');
+    } catch (e) {
+      console.error('[InMemoryStore] Seeding error:', e);
+    }
   }
 
   // Users
