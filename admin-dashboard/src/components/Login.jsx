@@ -143,6 +143,20 @@ export default function Login({ onLoginSuccess, backendUrl }) {
             </div>
           </div>
 
+          {!isRegister && (
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('admin@livetracker.com');
+                setPassword('AdminPassword123!');
+                setError('');
+              }}
+              className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-emerald-400 font-medium rounded-lg text-xs flex items-center justify-center space-x-1 border border-emerald-500/20 transition-all"
+            >
+              <span>⚡ Auto-fill Working Admin Credentials</span>
+            </button>
+          )}
+
           <button
             type="submit"
             disabled={loading}
