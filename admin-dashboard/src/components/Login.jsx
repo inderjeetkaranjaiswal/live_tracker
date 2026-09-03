@@ -44,8 +44,13 @@ export default function Login({ onLoginSuccess, backendUrl }) {
       }, isRegister ? 1000 : 0);
     } catch (err) {
       console.error('Authentication error:', err);
+      if (!err.response) {
+        setError(`Network Connection Failed: Could not reach backend server at ${backendUrl}. Check server status.`);
+        return;
+      }
       const validationErr = err.response?.data?.errors?.[0]?.msg;
-      const msg = validationErr || err.response?.data?.message || (isRegister ? 'Registration failed. Check details.' : 'Authentication failed. Check credentials.');
+      const serverMsg = err.response?.data?.message || err.response?.data?.error;
+      const msg = validationErr || serverMsg || (isRegister ? 'Registration failed. Check details.' : 'Authentication failed. Check credentials.');
       setError(msg);
     } finally {
       setLoading(false);

@@ -14,8 +14,13 @@ const connectDB = require('./config/database');
 const app = express();
 const server = http.createServer(app);
 
-// 1. Security Headers via Helmet
-app.use(helmet());
+// 1. Security Headers via Helmet (configured for cross-origin access)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginOpenerPolicy: { policy: 'unsafe-none' }
+  })
+);
 
 // 2. CORS configuration - allow trusted origins
 const allowedOrigins = process.env.CORS_ORIGIN
