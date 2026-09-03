@@ -44,7 +44,8 @@ export default function Login({ onLoginSuccess, backendUrl }) {
       }, isRegister ? 1000 : 0);
     } catch (err) {
       console.error('Authentication error:', err);
-      const msg = err.response?.data?.message || (isRegister ? 'Registration failed. Check details.' : 'Authentication failed. Check credentials.');
+      const validationErr = err.response?.data?.errors?.[0]?.msg;
+      const msg = validationErr || err.response?.data?.message || (isRegister ? 'Registration failed. Check details.' : 'Authentication failed. Check credentials.');
       setError(msg);
     } finally {
       setLoading(false);
