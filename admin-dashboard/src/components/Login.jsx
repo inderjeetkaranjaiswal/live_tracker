@@ -195,7 +195,7 @@ export default function Login({ onLoginSuccess, backendUrl }) {
         </div>
 
         <div className="pt-4 border-t border-slate-800/80 text-center text-xs text-slate-500">
-          Backend API: <code className="bg-slate-900 px-2 py-1 rounded text-emerald-400">{backendUrl}</code>
+          Backend API: <code className="bg-slate-900 px-2 py-1 rounded text-emerald-400">{backendUrl === '/api' ? 'https://live-tracker-ahr5.onrender.com (via proxy)' : backendUrl}</code>
         </div>
       </div>
     </div>
