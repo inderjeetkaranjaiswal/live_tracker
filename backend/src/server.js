@@ -22,22 +22,16 @@ app.use(
   })
 );
 
-// 2. CORS configuration - allow trusted origins
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
-
+// 2. CORS configuration - allow all trusted & cross-origin requests seamlessly
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, postman) or wildcard / match
-      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
-        return callback(null, true);
-      }
-      return callback(new Error('Not allowed by CORS policy'));
+      // Dynamically reflect origin and allow all incoming web, mobile & local requests
+      callback(null, true);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
   })
 );
 
@@ -76,12 +70,7 @@ app.get('/health', (req, res) => {
 // 6. Socket.IO Setup for Real-time Location Updates
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
-        return callback(null, true);
-      }
-      return callback(new Error('Not allowed by Socket.IO CORS policy'));
-    },
+    origin: true,
     methods: ['GET', 'POST'],
     credentials: true
   }
