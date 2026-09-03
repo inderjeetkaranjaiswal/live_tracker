@@ -89,7 +89,7 @@ io.on('connection', (socket) => {
 
 // 7. Database Connection & Server Initialization
 const PORT = process.env.PORT || 8080;
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Initialize Database Connection via environment configuration
 connectDB();

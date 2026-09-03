@@ -7,8 +7,7 @@ import Sidebar from './components/Sidebar';
 import LiveMap from './components/LiveMap';
 import EmployeeDetailModal from './components/EmployeeDetailModal';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '/api';
-const RENDER_DIRECT_URL = 'https://live-tracker-ahr5.onrender.com';
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'https://live-tracker-ahr5.onrender.com').replace(/\/$/, '');
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 export default function App() {
@@ -72,9 +71,9 @@ export default function App() {
   useEffect(() => {
     if (!token) return;
 
-    const socketUrl = BACKEND_URL.startsWith('http') ? BACKEND_URL : RENDER_DIRECT_URL;
-    const socket = io(socketUrl, {
-      transports: ['websocket', 'polling']
+    const socket = io(BACKEND_URL, {
+      transports: ['websocket', 'polling'],
+      secure: BACKEND_URL.startsWith('https')
     });
 
     socket.on('connect', () => {
