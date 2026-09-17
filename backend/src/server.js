@@ -1,6 +1,5 @@
 const http = require('http');
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -9,8 +8,7 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
 const locationRoutes = require('./routes/locationRoutes');
-const connectDB = require('./config/database');
-const seedDatabase = require('./utils/seedDatabase');
+const { connectDB, isDbConnected } = require('./config/database');
 
 const app = express();
 const server = http.createServer(app);
@@ -64,16 +62,17 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    dbState: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    dbState: isDbConnected() ? 'connected' : 'disconnected'
   });
 });
 
 // Version endpoint to verify which code is deployed
 app.get('/version', (req, res) => {
   res.status(200).json({
-    version: '2.0.0',
-    deployedAt: '2026-09-17T14:10:00Z',
-    features: ['mongodb-fallback-uri', 'seed-database', 'inmemory-seed', 'version-endpoint']
+    version: '2.1.0',
+    deployedAt: '2026-09-17T17:00:00Z',
+    auth: 'mongodb-only',
+    features: ['mongodb-sole-source-of-truth', 'no-inmemory-auth-fallback', 'clean-503-distinction']
   });
 });
 
@@ -105,23 +104,25 @@ const HOST = process.env.HOST || '0.0.0.0';
 const initDB = async () => {
   const conn = await connectDB();
   if (conn) {
-    // Seed default users into MongoDB Atlas after successful connection
-    await seedDatabase();
-    console.log('[Server] ✅ MongoDB connected and seeded successfully.');
+    console.log('[Server] ✅ MongoDB connected successfully.');
   } else {
-    console.warn('[Server] ⚠️  MongoDB unavailable. Using in-memory store. Retrying in 30s...');
-    // Retry connection in background
-    setTimeout(async () => {
+    console.warn('[Server] ⚠️  MongoDB connection pending or failed. Auth endpoints will return 503 until connected.');
+    // Periodic retry in background every 15 seconds
+    const retryInterval = setInterval(async () => {
+      if (isDbConnected()) {
+        clearInterval(retryInterval);
+        return;
+      }
       try {
         const retryConn = await connectDB();
         if (retryConn) {
-          await seedDatabase();
-          console.log('[Server] ✅ MongoDB reconnected on retry!');
+          console.log('[Server] ✅ MongoDB connected on background retry!');
+          clearInterval(retryInterval);
         }
       } catch (e) {
-        console.error('[Server] MongoDB retry failed:', e.message);
+        console.error('[Server] MongoDB reconnect attempt error:', e.message);
       }
-    }, 30000);
+    }, 15000);
   }
 };
 initDB();

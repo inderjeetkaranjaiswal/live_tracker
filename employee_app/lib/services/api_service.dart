@@ -109,9 +109,9 @@ class ApiService {
 
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       if (attempt == 1) {
-        onStatusUpdate?.call('Connecting to server...');
+        onStatusUpdate?.call('Connecting to server... Please wait.');
       } else {
-        onStatusUpdate?.call('Server is waking up, retrying (attempt $attempt of $maxAttempts)...');
+        onStatusUpdate?.call('Unable to connect to server. Retrying... (attempt $attempt of $maxAttempts)');
       }
 
       try {
@@ -147,42 +147,50 @@ class ApiService {
 
           return {'success': true, 'data': data, 'role': userRole};
         } else if (response.statusCode == 401) {
-          // Authentication error — NEVER retry invalid credentials!
-          return {'success': false, 'message': 'Invalid email or password.'};
+          // Authentication error — NEVER retry genuine invalid credentials!
+          return {'success': false, 'message': 'Invalid email or password'};
         } else if (response.statusCode == 403) {
           return {'success': false, 'message': 'You are not authorized to access this resource.'};
-        } else if (response.statusCode == 404) {
-          return {'success': false, 'message': 'API endpoint unavailable.'};
-        } else if (response.statusCode >= 500) {
-          // Server error / Render cold gateway 502/503
+        } else if (response.statusCode == 503) {
           if (attempt < maxAttempts) {
+            onStatusUpdate?.call('Unable to connect to server. Retrying...');
             await Future.delayed(const Duration(seconds: 2));
             continue;
           }
-          return {'success': false, 'message': 'Server error (${response.statusCode}). Please try again.'};
+          return {'success': false, 'message': 'Server temporarily unavailable. Please try again.'};
+        } else if (response.statusCode >= 500) {
+          if (attempt < maxAttempts) {
+            onStatusUpdate?.call('Unable to connect to server. Retrying...');
+            await Future.delayed(const Duration(seconds: 2));
+            continue;
+          }
+          return {'success': false, 'message': 'Server temporarily unavailable. Please try again.'};
         } else {
           return {'success': false, 'message': data['message'] ?? 'Authentication failed (HTTP ${response.statusCode})'};
         }
       } on TimeoutException {
         if (attempt < maxAttempts) {
+          onStatusUpdate?.call('Unable to connect to server. Retrying...');
           await Future.delayed(const Duration(seconds: 2));
           continue;
         }
         return {
           'success': false,
-          'message': 'Server connection timed out. Server may be waking up, please try again.',
+          'message': 'Unable to connect to server. Retrying...',
         };
       } on SocketException {
         if (attempt < maxAttempts) {
+          onStatusUpdate?.call('Unable to connect to server. Retrying...');
           await Future.delayed(const Duration(seconds: 2));
           continue;
         }
         return {
           'success': false,
-          'message': 'Unable to connect to server. Please check your internet connection.',
+          'message': 'Unable to connect to server. Retrying...',
         };
       } catch (e) {
         if (attempt < maxAttempts && (e is http.ClientException || e.toString().contains('Failed host lookup'))) {
+          onStatusUpdate?.call('Unable to connect to server. Retrying...');
           await Future.delayed(const Duration(seconds: 2));
           continue;
         }
@@ -190,7 +198,7 @@ class ApiService {
       }
     }
 
-    return {'success': false, 'message': 'Unable to connect to server. Please try again.'};
+    return {'success': false, 'message': 'Unable to connect to server. Retrying...'};
   }
 
   /// Check whether a valid, unexpired session exists in persistent storage.

@@ -1,83 +1,16 @@
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
 
+/**
+ * In-memory buffer for real-time ephemeral location coordinates.
+ * NOTE: User authentication and credentials DO NOT use in-memory stores.
+ * MongoDB is the sole source of truth for all authentication.
+ */
 class InMemoryStore {
   constructor() {
-    this.users = new Map();
     this.locations = new Map();
-    this.seedDefaultUsers();
   }
 
-  seedDefaultUsers() {
-    try {
-      const salt = bcrypt.genSaltSync(10);
-      const inderjeetPasswordHash = bcrypt.hashSync('REDACTED_TEST_PASSWORD', salt);
-      const empPasswordHash = bcrypt.hashSync('EmployeePassword123!', salt);
-
-      // Only Inderjeet Jaiswal is the system administrator
-      this.saveUser({
-        name: 'Inderjeet Jaiswal',
-        email: 'admin@livetracker.com',
-        password: inderjeetPasswordHash,
-        role: 'admin'
-      });
-
-      this.saveUser({
-        name: 'John Field Employee',
-        email: 'employee@livetracker.com',
-        password: empPasswordHash,
-        role: 'employee'
-      });
-      console.log('[InMemoryStore] Default admin (admin@livetracker.com / REDACTED_TEST_PASSWORD) and employee accounts seeded successfully.');
-    } catch (e) {
-      console.error('[InMemoryStore] Seeding error:', e);
-    }
-  }
-
-  // Users
-  findUserByEmail(email) {
-    const normEmail = email.toLowerCase().trim();
-    for (const user of this.users.values()) {
-      if (user.email === normEmail) return user;
-    }
-    return null;
-  }
-
-  findUserById(id) {
-    return this.users.get(id) || null;
-  }
-
-  saveUser(userData) {
-    const id = userData._id ? userData._id.toString() : crypto.randomBytes(12).toString('hex');
-    const user = {
-      _id: id,
-      id: id,
-      name: userData.name,
-      email: userData.email.toLowerCase().trim(),
-      password: userData.password,
-      role: userData.role || 'employee',
-      createdAt: userData.createdAt || new Date(),
-      toJSON() {
-        const copy = { ...this };
-        delete copy.password;
-        delete copy._id;
-        delete copy.__v;
-        return copy;
-      }
-    };
-    this.users.set(id, user);
-    return user;
-  }
-
-  findEmployees() {
-    const list = [];
-    for (const user of this.users.values()) {
-      if (user.role === 'employee') list.push(user);
-    }
-    return list;
-  }
-
-  // Locations
+  // Locations buffer
   updateLocation(employeeId, latitude, longitude) {
     const now = new Date();
     const locId = crypto.randomBytes(12).toString('hex');
@@ -110,6 +43,11 @@ class InMemoryStore {
 
   getAllLocations() {
     return Array.from(this.locations.values());
+  }
+
+  findEmployees() {
+    // Deprecated — all employee queries strictly use MongoDB User collection
+    return [];
   }
 }
 

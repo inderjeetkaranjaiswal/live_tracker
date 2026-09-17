@@ -2,18 +2,34 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 const User = require('../models/User');
-const memoryStore = require('../utils/inMemoryStore');
+const { isDbConnected } = require('../config/database');
 const { getJwtSecret } = require('../utils/secretManager');
 
 const router = express.Router();
 
-const isDbConnected = () => mongoose.connection.readyState === 1;
+/**
+ * Helper to check if an error is database-connectivity related.
+ */
+function isDbError(err) {
+  if (!err) return false;
+  const name = err.name || '';
+  const msg = err.message || '';
+  return (
+    name === 'MongoNetworkError' ||
+    name === 'MongoServerSelectionError' ||
+    name === 'MongooseServerSelectionError' ||
+    name === 'MongoTimeoutError' ||
+    msg.includes('buffering timed out') ||
+    msg.includes('connection timed out') ||
+    msg.includes('Topology was destroyed') ||
+    msg.includes('server selection')
+  );
+}
 
 /**
  * @route   POST /auth/register
- * @desc    Register a new employee or admin user
+ * @desc    Register a new employee or admin user in MongoDB
  * @access  Public
  */
 router.post(
@@ -30,35 +46,39 @@ router.post(
       return res.status(400).json({ error: 'Validation Error', errors: errors.array() });
     }
 
+    // Strictly verify MongoDB availability — NO in-memory fallback
+    if (!isDbConnected()) {
+      return res.status(503).json({
+        error: 'Database unavailable',
+        message: 'Server temporarily unavailable. Please try again.'
+      });
+    }
+
     const { name, email, password, role } = req.body;
+    const normalizedEmail = (email || '').trim().toLowerCase();
 
     try {
-      let existingUser;
-      if (isDbConnected()) {
-        existingUser = await User.findOne({ email });
-      } else {
-        existingUser = memoryStore.findUserByEmail(email);
-      }
-
+      const existingUser = await User.findOne({ email: normalizedEmail });
       if (existingUser) {
-        return res.status(409).json({ error: 'User already exists', message: 'An account with this email already exists.' });
+        return res.status(409).json({
+          error: 'User already exists',
+          message: 'An account with this email already exists.'
+        });
       }
 
       // Hash password using bcrypt with 10 salt rounds
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      let savedUser;
       const userRole = role || 'employee';
-
-      if (isDbConnected()) {
-        const user = new User({ name, email, password: hashedPassword, role: userRole });
-        await user.save();
-        savedUser = user.toJSON();
-      } else {
-        const userObj = memoryStore.saveUser({ name, email, password: hashedPassword, role: userRole });
-        savedUser = userObj.toJSON();
-      }
+      const user = new User({
+        name: name.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: userRole
+      });
+      await user.save();
+      const savedUser = user.toJSON();
 
       // Sign JWT token
       const secret = getJwtSecret();
@@ -74,15 +94,24 @@ router.post(
         user: savedUser
       });
     } catch (err) {
-      console.error('Registration error:', err);
-      return res.status(500).json({ error: 'Server error', message: 'Failed to register user.' });
+      console.error('[Auth Register] Error:', err.message || err);
+      if (isDbError(err)) {
+        return res.status(503).json({
+          error: 'Database unavailable',
+          message: 'Server temporarily unavailable. Please try again.'
+        });
+      }
+      return res.status(500).json({
+        error: 'Server error',
+        message: 'Failed to register user.'
+      });
     }
   }
 );
 
 /**
  * @route   POST /auth/login
- * @desc    Authenticate user & return JWT token
+ * @desc    Authenticate user against MongoDB & return JWT token
  * @access  Public
  */
 router.post(
@@ -97,27 +126,40 @@ router.post(
       return res.status(400).json({ error: 'Validation Error', errors: errors.array() });
     }
 
+    // Strictly verify MongoDB availability — NEVER return 401 when DB is down
+    if (!isDbConnected()) {
+      return res.status(503).json({
+        error: 'Database unavailable',
+        message: 'Server temporarily unavailable. Please try again.'
+      });
+    }
+
     const { email, password } = req.body;
+    const normalizedEmail = (email || '').trim().toLowerCase();
 
     try {
-      let user;
-      if (isDbConnected()) {
-        user = await User.findOne({ email });
-      } else {
-        user = memoryStore.findUserByEmail(email);
-      }
+      // Query MongoDB as the SOLE source of truth
+      const user = await User.findOne({ email: normalizedEmail });
 
       if (!user) {
-        return res.status(401).json({ error: 'Invalid credentials', message: 'Email or password incorrect.' });
+        return res.status(401).json({
+          error: 'Invalid credentials',
+          message: 'Invalid email or password.'
+        });
       }
 
       // Verify bcrypt password hash
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        return res.status(401).json({ error: 'Invalid credentials', message: 'Email or password incorrect.' });
+        return res.status(401).json({
+          error: 'Invalid credentials',
+          message: 'Invalid email or password.'
+        });
       }
 
-      const userJson = typeof user.toJSON === 'function' ? user.toJSON() : { id: user.id, email: user.email, name: user.name, role: user.role };
+      const userJson = typeof user.toJSON === 'function'
+        ? user.toJSON()
+        : { id: user._id.toString(), email: user.email, name: user.name, role: user.role };
 
       // Sign JWT token
       const secret = getJwtSecret();
@@ -133,8 +175,17 @@ router.post(
         user: userJson
       });
     } catch (err) {
-      console.error('Login error:', err);
-      return res.status(500).json({ error: 'Server error', message: 'Failed to authenticate user.' });
+      console.error('[Auth Login] Error:', err.message || err);
+      if (isDbError(err)) {
+        return res.status(503).json({
+          error: 'Database unavailable',
+          message: 'Server temporarily unavailable. Please try again.'
+        });
+      }
+      return res.status(500).json({
+        error: 'Server error',
+        message: 'Failed to authenticate user.'
+      });
     }
   }
 );
