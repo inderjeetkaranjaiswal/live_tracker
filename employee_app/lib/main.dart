@@ -1,24 +1,46 @@
 import 'package:flutter/material.dart';
 import 'config/app_config.dart';
 import 'services/api_service.dart';
-import 'screens/login_screen.dart';
+import 'screens/role_selection_screen.dart';
 import 'screens/status_screen.dart';
+import 'screens/admin_dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppConfig.init();
   final loggedIn = await ApiService.isLoggedIn();
-  runApp(EmployeeApp(isLoggedIn: loggedIn));
+  String? role;
+  if (loggedIn) {
+    role = await ApiService.getUserRole();
+  }
+  runApp(EmployeeApp(isLoggedIn: loggedIn, userRole: role));
 }
 
 class EmployeeApp extends StatelessWidget {
   final bool isLoggedIn;
-  const EmployeeApp({super.key, required this.isLoggedIn});
+  final String? userRole;
+
+  const EmployeeApp({
+    super.key,
+    required this.isLoggedIn,
+    this.userRole,
+  });
 
   @override
   Widget build(BuildContext context) {
+    Widget initialScreen;
+    if (isLoggedIn) {
+      if (userRole == 'admin') {
+        initialScreen = const AdminDashboardScreen();
+      } else {
+        initialScreen = const StatusScreen();
+      }
+    } else {
+      initialScreen = const RoleSelectionScreen();
+    }
+
     return MaterialApp(
-      title: 'Employee Live Tracker',
+      title: 'Live Employee Tracker',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,
       theme: ThemeData(
@@ -36,7 +58,7 @@ class EmployeeApp extends StatelessWidget {
           surface: const Color(0xFF0F172A),
         ),
       ),
-      home: isLoggedIn ? const StatusScreen() : const LoginScreen(),
+      home: initialScreen,
     );
   }
 }

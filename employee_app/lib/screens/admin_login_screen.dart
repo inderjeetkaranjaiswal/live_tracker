@@ -1,31 +1,25 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'permission_screen.dart';
 import 'admin_dashboard_screen.dart';
-import 'role_selection_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  final bool fromRoleSelection;
-  const LoginScreen({super.key, this.fromRoleSelection = false});
+class AdminLoginScreen extends StatefulWidget {
+  const AdminLoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<AdminLoginScreen> createState() => _AdminLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  bool _isRegister = false;
-
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController(text: 'employee@livetracker.com');
+  final _emailController = TextEditingController(text: 'admin@livetracker.com');
   final _passwordController = TextEditingController();
-  String _selectedRole = 'employee';
+  bool _obscurePassword = true;
 
   bool _isLoading = false;
   String? _errorMessage;
   String _statusMessage = '';
 
-  Future<void> _handleSubmit() async {
+  Future<void> _handleAdminLogin() async {
     if (_isLoading) return; // Prevent duplicate submissions
     if (!_formKey.currentState!.validate()) return;
 
@@ -35,59 +29,42 @@ class _LoginScreenState extends State<LoginScreen> {
       _statusMessage = '';
     });
 
-    final Map<String, dynamic> result;
-
-    if (_isRegister) {
-      setState(() => _statusMessage = 'Creating account...');
-      result = await ApiService.register(
-        _nameController.text.trim(),
-        _emailController.text.trim().toLowerCase(),
-        _passwordController.text.trim(),
-        role: _selectedRole,
-      );
-    } else {
-      result = await ApiService.login(
-        _emailController.text.trim().toLowerCase(),
-        _passwordController.text.trim(),
-        onStatusUpdate: (status) {
-          if (mounted) setState(() => _statusMessage = status);
-        },
-      );
-    }
+    final result = await ApiService.login(
+      _emailController.text.trim().toLowerCase(),
+      _passwordController.text.trim(),
+      onStatusUpdate: (status) {
+        if (mounted) setState(() => _statusMessage = status);
+      },
+    );
 
     if (!mounted) return;
 
-    setState(() {
-      _isLoading = false;
-      _statusMessage = '';
-    });
-
     if (result['success']) {
-      final role = result['role'] ?? result['data']?['user']?['role'] ?? 'employee';
+      final userRole = result['role'] ?? result['data']?['user']?['role'];
 
-      if (role == 'admin') {
+      // Strict role verification: only 'admin' is permitted into the Admin Dashboard
+      if (userRole == 'admin') {
+        setState(() => _isLoading = false);
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
           (route) => false,
         );
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const PermissionScreen()),
-        );
+        // Clear session immediately to deny frontend bypass
+        await ApiService.logout();
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              'Access Denied: Admin privileges required. This account is registered as "$userRole".';
+        });
       }
     } else {
       setState(() {
-        _errorMessage = result['message'];
+        _isLoading = false;
+        _statusMessage = '';
+        _errorMessage = result['message'] ?? 'Authentication failed';
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
   }
 
   @override
@@ -95,15 +72,13 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: widget.fromRoleSelection
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              title: const Text('Employee Authentication'),
-            )
-          : null,
+      appBar: AppBar(
+        title: const Text('Admin Authentication'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -145,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     Text(
-                      _isRegister ? 'Create Account' : 'Employee Portal',
+                      'Admin Portal',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -153,22 +128,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _isRegister
-                          ? 'Register your account to begin sharing live GPS updates'
-                          : 'Sign in to enable live GPS location tracking for field operations',
+                      'Sign in with administrator credentials to access live GPS telemetry, fleet map, and employee statuses',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.outline,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
 
-                    // Dynamic connection status during login
+                    // Dynamic connection status during cold-start retries
                     if (_isLoading && _statusMessage.isNotEmpty) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer,
+                          color: Theme.of(context).colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -183,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Text(
                                 _statusMessage,
                                 style: TextStyle(
-                                  color: theme.colorScheme.onPrimaryContainer,
+                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                                   fontSize: 13,
                                 ),
                               ),
@@ -201,45 +174,39 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: theme.colorScheme.errorContainer,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          _errorMessage!,
-                          style: TextStyle(color: theme.colorScheme.onErrorContainer),
-                          textAlign: TextAlign.center,
+                        child: Row(
+                          children: [
+                            Icon(Icons.gpp_bad_rounded,
+                                color: theme.colorScheme.onErrorContainer),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onErrorContainer,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 20),
-                    ],
-
-                    if (_isRegister) ...[
-                      TextFormField(
-                        controller: _nameController,
-                        decoration: InputDecoration(
-                          labelText: 'Full Name',
-                          prefixIcon: const Icon(Icons.person_outline),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.isEmpty) return 'Please enter your full name';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
                     ],
 
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        labelText: 'Email Address',
+                        labelText: 'Admin Email',
                         prefixIcon: const Icon(Icons.email_outlined),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                       validator: (val) {
-                        if (val == null || val.isEmpty) return 'Please enter your email';
+                        if (val == null || val.isEmpty) return 'Please enter admin email';
                         if (!val.contains('@')) return 'Enter a valid email address';
                         return null;
                       },
@@ -248,48 +215,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: 'Admin Password',
                         prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                       validator: (val) {
-                        if (val == null || val.isEmpty) return 'Please enter your password';
-                        if (_isRegister && val.length < 8) {
-                          return 'Password must be at least 8 characters';
-                        }
+                        if (val == null || val.isEmpty) return 'Please enter admin password';
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
-
-                    if (_isRegister) ...[
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedRole,
-                        decoration: InputDecoration(
-                          labelText: 'Select Role',
-                          prefixIcon: const Icon(Icons.badge_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'employee', child: Text('Employee (Field Personnel)')),
-                          DropdownMenuItem(value: 'admin', child: Text('Admin (System Monitor)')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedRole = val);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                    const SizedBox(height: 24),
 
                     FilledButton(
-                      onPressed: _isLoading ? null : _handleSubmit,
+                      onPressed: _isLoading ? null : _handleAdminLogin,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -302,43 +254,23 @@ class _LoginScreenState extends State<LoginScreen> {
                               height: 24,
                               child: CircularProgressIndicator(strokeWidth: 2.5),
                             )
-                          : Text(
-                              _isRegister ? 'Register Account' : 'Log In & Enable Tracking',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          : const Text(
+                              'Sign In to Admin Dashboard',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                     ),
                     const SizedBox(height: 16),
 
-                    TextButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                              setState(() {
-                                _isRegister = !_isRegister;
-                                _errorMessage = null;
-                              });
-                            },
-                      child: Text(
-                        _isRegister
-                            ? 'Already have an account? Sign In'
-                            : 'Need a new account? Register here',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
+                      child: const Text('Back to Role Selection'),
                     ),
-
-                    if (widget.fromRoleSelection) ...[
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: _isLoading
-                            ? null
-                            : () => Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-                                  (route) => false,
-                                ),
-                        icon: const Icon(Icons.swap_horiz, size: 18),
-                        label: const Text('Switch Role (Admin / Employee)'),
-                      ),
-                    ],
                   ],
                 ),
               ),

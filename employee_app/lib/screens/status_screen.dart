@@ -3,7 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
-import 'login_screen.dart';
+import 'role_selection_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 class StatusScreen extends StatefulWidget {
   const StatusScreen({super.key});
@@ -16,6 +17,7 @@ class _StatusScreenState extends State<StatusScreen> {
   late LocationService _locationService;
   String _userName = 'Employee';
   String _userEmail = '';
+  String _userRole = 'employee';
 
   @override
   void initState() {
@@ -31,6 +33,7 @@ class _StatusScreenState extends State<StatusScreen> {
     setState(() {
       _userName = prefs.getString('user_name') ?? 'Employee';
       _userEmail = prefs.getString('user_email') ?? '';
+      _userRole = prefs.getString('user_role') ?? 'employee';
     });
   }
 
@@ -42,8 +45,9 @@ class _StatusScreenState extends State<StatusScreen> {
     _locationService.stopTracking();
     await ApiService.logout();
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+      (route) => false,
     );
   }
 
@@ -68,8 +72,28 @@ class _StatusScreenState extends State<StatusScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.all(10.0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              color: Colors.white,
+              child: Image.asset('assets/images/app_logo.jpg', fit: BoxFit.contain),
+            ),
+          ),
+        ),
         title: const Text('Live Location Tracker'),
         actions: [
+          if (_userRole == 'admin')
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              tooltip: 'Admin Dashboard',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+                );
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Log Out',
@@ -86,7 +110,7 @@ class _StatusScreenState extends State<StatusScreen> {
               // User Profile Banner
               Card(
                 elevation: 0,
-                color: theme.colorScheme.surfaceVariant,
+                color: theme.colorScheme.surfaceContainerHighest,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -127,7 +151,7 @@ class _StatusScreenState extends State<StatusScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.15),
+                                color: Colors.green.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
@@ -160,7 +184,7 @@ class _StatusScreenState extends State<StatusScreen> {
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: (isTracking ? Colors.green : Colors.grey).withOpacity(0.2),
+                      color: (isTracking ? Colors.green : Colors.grey).withValues(alpha: 0.2),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
                     ),
@@ -177,7 +201,7 @@ class _StatusScreenState extends State<StatusScreen> {
                             height: 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.green.withOpacity(0.2),
+                              color: Colors.green.withValues(alpha: 0.2),
                             ),
                           ),
                         Icon(

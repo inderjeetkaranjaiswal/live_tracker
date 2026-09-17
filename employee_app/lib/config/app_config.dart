@@ -1,27 +1,18 @@
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Configuration settings for Employee Mobile App.
+/// Centralized configuration for Mobile App (Employee & Admin).
+/// Production base URL is strictly bound to Render: https://live-tracker-ahr5.onrender.com
 class AppConfig {
-  static String _customBaseUrl = '';
+  /// Canonical production Render backend URL.
+  static const String productionBaseUrl = 'https://live-tracker-ahr5.onrender.com';
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedUrl = prefs.getString('custom_server_url');
-    if (savedUrl != null && savedUrl.isNotEmpty) {
-      _customBaseUrl = savedUrl.trim();
-    }
+    // Clean up any stale or accidental localhost/127.0.0.1 custom URLs from previous runs
+    await prefs.remove('custom_server_url');
   }
 
-  static Future<void> setBaseUrl(String url) async {
-    _customBaseUrl = url.trim();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('custom_server_url', _customBaseUrl);
-  }
-
-  /// Backend API Base URL (Render Production Server)
-  static String get baseUrl {
-    if (_customBaseUrl.isNotEmpty) return _customBaseUrl;
-    return 'https://live-tracker-ahr5.onrender.com';
-  }
+  /// Backend API Base URL — strictly points to the production Render backend.
+  static String get baseUrl => productionBaseUrl;
 }
+
