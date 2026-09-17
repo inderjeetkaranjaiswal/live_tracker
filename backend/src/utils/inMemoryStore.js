@@ -11,31 +11,24 @@ class InMemoryStore {
   seedDefaultUsers() {
     try {
       const salt = bcrypt.genSaltSync(10);
-      const adminPasswordHash = bcrypt.hashSync('AdminPassword123!', salt);
-      const userPasswordHash = bcrypt.hashSync('Password123!', salt);
+      const inderjeetPasswordHash = bcrypt.hashSync('REDACTED_TEST_PASSWORD', salt);
       const empPasswordHash = bcrypt.hashSync('EmployeePassword123!', salt);
 
+      // Only Inderjeet Jaiswal is the system administrator
       this.saveUser({
-        name: 'System Administrator',
+        name: 'Inderjeet Jaiswal',
         email: 'admin@livetracker.com',
-        password: adminPasswordHash,
+        password: inderjeetPasswordHash,
         role: 'admin'
       });
 
       this.saveUser({
-        name: 'Inderjeet Karan Jaiswal',
-        email: 'inderjeetkaranjaiswal@gmail.com',
-        password: userPasswordHash,
-        role: 'admin'
-      });
-
-      this.saveUser({
-        name: 'Field Officer John',
-        email: 'employee1@livetracker.com',
+        name: 'John Field Employee',
+        email: 'employee@livetracker.com',
         password: empPasswordHash,
         role: 'employee'
       });
-      console.log('[InMemoryStore] Default admin and employee accounts seeded successfully.');
+      console.log('[InMemoryStore] Default admin (admin@livetracker.com / REDACTED_TEST_PASSWORD) and employee accounts seeded successfully.');
     } catch (e) {
       console.error('[InMemoryStore] Seeding error:', e);
     }

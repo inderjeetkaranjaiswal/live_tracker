@@ -10,6 +10,12 @@ async function runComprehensiveVerification() {
   console.log('=================================================');
 
   try {
+    if (!server.listening) {
+      await new Promise((resolve, reject) => {
+        server.listen(8080, '127.0.0.1', resolve).on('error', reject);
+      });
+    }
+
     // 1. Health Check
     console.log('\n[Phase 1.1] GET /health - Server & DB Connectivity');
     const healthRes = await fetch(`${BASE_URL}/health`);

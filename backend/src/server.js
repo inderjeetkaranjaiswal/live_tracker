@@ -10,6 +10,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/authRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const connectDB = require('./config/database');
+const seedDatabase = require('./utils/seedDatabase');
 
 const app = express();
 const server = http.createServer(app);
@@ -92,7 +93,12 @@ const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Initialize Database Connection via environment configuration
-connectDB();
+connectDB().then((conn) => {
+  if (conn) {
+    // Seed default users into MongoDB Atlas after successful connection
+    seedDatabase();
+  }
+});
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
