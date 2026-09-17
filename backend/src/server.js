@@ -68,6 +68,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Version endpoint to verify which code is deployed
+app.get('/version', (req, res) => {
+  res.status(200).json({
+    version: '2.0.0',
+    deployedAt: '2026-09-17T14:10:00Z',
+    features: ['mongodb-fallback-uri', 'seed-database', 'inmemory-seed', 'version-endpoint']
+  });
+});
+
 // 6. Socket.IO Setup for Real-time Location Updates
 const io = new Server(server, {
   cors: {
@@ -93,12 +102,29 @@ const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Initialize Database Connection via environment configuration
-connectDB().then((conn) => {
+const initDB = async () => {
+  const conn = await connectDB();
   if (conn) {
     // Seed default users into MongoDB Atlas after successful connection
-    seedDatabase();
+    await seedDatabase();
+    console.log('[Server] ✅ MongoDB connected and seeded successfully.');
+  } else {
+    console.warn('[Server] ⚠️  MongoDB unavailable. Using in-memory store. Retrying in 30s...');
+    // Retry connection in background
+    setTimeout(async () => {
+      try {
+        const retryConn = await connectDB();
+        if (retryConn) {
+          await seedDatabase();
+          console.log('[Server] ✅ MongoDB reconnected on retry!');
+        }
+      } catch (e) {
+        console.error('[Server] MongoDB retry failed:', e.message);
+      }
+    }, 30000);
   }
-});
+};
+initDB();
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
