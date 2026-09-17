@@ -8,7 +8,7 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
 const locationRoutes = require('./routes/locationRoutes');
-const { connectDB, isDbConnected } = require('./config/database');
+const { connectDB, isDbConnected, getDbDiagnostics } = require('./config/database');
 
 const app = express();
 const server = http.createServer(app);
@@ -62,17 +62,35 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    dbState: isDbConnected() ? 'connected' : 'disconnected'
+    dbState: isDbConnected() ? 'connected' : 'disconnected',
+    db: getDbDiagnostics()
   });
+});
+
+// Manual Reconnect Endpoint to trigger immediate MongoDB reconnection attempt
+app.post('/health/reconnect', async (req, res) => {
+  try {
+    const conn = await connectDB();
+    res.status(200).json({
+      success: isDbConnected(),
+      db: getDbDiagnostics()
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: 'Reconnect failed',
+      db: getDbDiagnostics()
+    });
+  }
 });
 
 // Version endpoint to verify which code is deployed
 app.get('/version', (req, res) => {
   res.status(200).json({
-    version: '2.1.0',
-    deployedAt: '2026-09-17T17:00:00Z',
+    version: '2.1.1',
+    deployedAt: '2026-09-17T18:50:00Z',
     auth: 'mongodb-only',
-    features: ['mongodb-sole-source-of-truth', 'no-inmemory-auth-fallback', 'clean-503-distinction']
+    features: ['mongodb-sole-source-of-truth', 'no-inmemory-auth-fallback', 'clean-503-distinction', 'db-diagnostics'],
+    db: getDbDiagnostics()
   });
 });
 
