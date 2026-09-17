@@ -36,7 +36,7 @@ router.post(
   '/register',
   [
     body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }),
-    body('email').isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
+    body('email').trim().isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long'),
     body('role').optional().isIn(['admin', 'employee']).withMessage('Role must be either admin or employee')
   ],
@@ -117,7 +117,7 @@ router.post(
 router.post(
   '/login',
   [
-    body('email').isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
+    body('email').trim().isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
     body('password').notEmpty().withMessage('Password is required')
   ],
   async (req, res) => {
