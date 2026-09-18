@@ -20,3 +20,5 @@ services:
         generateValue: true
       - key: MONGO_URI
         sync: false
+      - key: RENDER_EXTERNAL_URL
+        value: "https://live-tracker-ahr5.onrender.com"

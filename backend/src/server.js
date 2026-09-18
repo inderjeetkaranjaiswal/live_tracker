@@ -67,6 +67,17 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Direct APK Download Endpoints
+app.get('/download/apk', (req, res) => {
+  const filePath = require('path').resolve(__dirname, '../../LiveTracker-Latest.apk');
+  res.download(filePath, 'LiveTracker-Latest.apk');
+});
+
+app.get('/download/apk-arm64', (req, res) => {
+  const filePath = require('path').resolve(__dirname, '../../LiveTracker-arm64-Latest.apk');
+  res.download(filePath, 'LiveTracker-arm64-Latest.apk');
+});
+
 // Manual Reconnect Endpoint to trigger immediate MongoDB reconnection attempt
 app.post('/health/reconnect', async (req, res) => {
   try {
@@ -114,7 +125,31 @@ io.on('connection', (socket) => {
   });
 });
 
-// 7. Database Connection & Server Initialization
+// 7. Self-Ping Keepalive (prevents Render free-tier cold starts)
+const SELF_PING_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
+
+function startKeepalive(baseUrl) {
+  setInterval(async () => {
+    try {
+      const https = require('https');
+      const http = require('http');
+      const url = new URL(`${baseUrl}/health`);
+      const client = url.protocol === 'https:' ? https : http;
+      const req = client.get(url.toString(), (res) => {
+        console.log(`[Keepalive] Self-ping OK — status ${res.statusCode} at ${new Date().toISOString()}`);
+      });
+      req.on('error', (err) => {
+        console.warn(`[Keepalive] Self-ping failed: ${err.message}`);
+      });
+      req.end();
+    } catch (err) {
+      console.warn(`[Keepalive] Self-ping error: ${err.message}`);
+    }
+  }, SELF_PING_INTERVAL_MS);
+  console.log(`[Keepalive] ✅ Self-ping active — pinging ${baseUrl}/health every 5 minutes`);
+}
+
+// 8. Database Connection & Server Initialization
 const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 
@@ -165,6 +200,12 @@ if (require.main === module) {
     console.log(`📡 Listening at: http://${HOST}:${PORT}`);
     console.log(`🔒 Security headers (Helmet), Rate Limiting & JWT active`);
     console.log(`=================================================`);
+
+    // Start keepalive self-ping using the public URL in production, localhost in dev
+    const selfUrl = process.env.RENDER_EXTERNAL_URL
+      || process.env.SELF_URL
+      || `http://localhost:${PORT}`;
+    startKeepalive(selfUrl);
   });
 }
 
