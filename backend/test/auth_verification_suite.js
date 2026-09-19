@@ -5,6 +5,14 @@ const mongoose = require('mongoose');
 const { app, server } = require('../src/server');
 const { isDbConnected } = require('../src/config/database');
 
+// Load test credentials from environment — never hardcode real credentials
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  console.error('❌ Set ADMIN_EMAIL and ADMIN_PASSWORD env vars before running this suite.');
+  process.exit(1);
+}
+
 const BASE_URL = `http://127.0.0.1:8080`;
 
 async function runSuite() {
@@ -34,15 +42,15 @@ async function runSuite() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: 'admin@livetracker.com',
-      password: 'REDACTED_TEST_PASSWORD'
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD
     })
   });
   assert.strictEqual(adminRes.status, 200, 'Admin login must return HTTP 200');
   const adminData = await adminRes.json();
   assert.ok(adminData.token, 'Must return valid JWT token');
   assert.strictEqual(adminData.user.role, 'admin', 'User role must be admin');
-  assert.strictEqual(adminData.user.email, 'admin@livetracker.com');
+  assert.strictEqual(adminData.user.email, ADMIN_EMAIL);
   const adminToken = adminData.token;
   console.log('✅ Test A Passed: Admin login HTTP 200, role = admin, valid JWT');
 
@@ -111,8 +119,8 @@ async function runSuite() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: 'admin@livetracker.com',
-      password: 'REDACTED_TEST_PASSWORD'
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD
     })
   });
   assert.strictEqual(dbDownRes.status, 503, 'When DB is down, login MUST return HTTP 503 (NOT 401)');
@@ -137,8 +145,8 @@ async function runSuite() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: 'admin@livetracker.com',
-      password: 'REDACTED_TEST_PASSWORD'
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD
     })
   });
   assert.strictEqual(postRestartAdminRes.status, 200, 'Admin login must still succeed post-reconnect');
@@ -171,7 +179,7 @@ async function runSuite() {
   const jwt = require('jsonwebtoken');
   const { getJwtSecret } = require('../src/utils/secretManager');
   const decoded = jwt.verify(adminToken, getJwtSecret(), { algorithms: ['HS256'] });
-  assert.strictEqual(decoded.email, 'admin@livetracker.com');
+  assert.strictEqual(decoded.email, ADMIN_EMAIL);
   assert.strictEqual(decoded.role, 'admin');
   console.log('✅ Test K Passed: JWT verified with HS256, contains correct claims');
 

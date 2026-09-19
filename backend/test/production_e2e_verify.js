@@ -1,7 +1,16 @@
 const { io } = require('socket.io-client');
 const assert = require('assert');
 
-const PROD_URL = 'https://live-tracker-ahr5.onrender.com';
+// Load credentials from environment — never hardcode secrets here
+const PROD_URL = process.env.PROD_URL || 'https://live-tracker-ahr5.onrender.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  console.error('❌ ADMIN_EMAIL and ADMIN_PASSWORD env vars must be set to run this test.');
+  console.error('   Example: ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=secret node production_e2e_verify.js');
+  process.exit(1);
+}
 
 async function verifyProductionFlow() {
   console.log('====================================================');
@@ -17,30 +26,30 @@ async function verifyProductionFlow() {
   console.log('✅ Health Check OK:', healthData);
 
   // Step 2: Real Admin Login
-  console.log('\n[Step 2] Testing Admin Login (admin@livetracker.com / REDACTED_TEST_PASSWORD)...');
+  console.log(`\n[Step 2] Testing Admin Login (${ADMIN_EMAIL})...`);
   const adminLoginRes = await fetch(`${PROD_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: 'admin@livetracker.com',
-      password: 'REDACTED_TEST_PASSWORD'
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD
     })
   });
   assert.strictEqual(adminLoginRes.status, 200, 'Admin login must return 200');
   const adminLoginData = await adminLoginRes.json();
   assert.ok(adminLoginData.token, 'Admin JWT token must be received');
   assert.strictEqual(adminLoginData.user.role, 'admin', 'User role must be admin');
-  assert.strictEqual(adminLoginData.user.email, 'admin@livetracker.com');
+  assert.strictEqual(adminLoginData.user.email, ADMIN_EMAIL);
   const adminToken = adminLoginData.token;
   console.log('✅ Admin Login Successful: JWT received, role = admin');
 
   // Step 3: Legitimate Employee Login
-  console.log('\n[Step 3] Testing Employee Login (employee@livetracker.com / EmployeePassword123!)...');
+  console.log('\n[Step 3] Testing Employee Login (field.officer@livetracker.com / EmployeePassword123!)...');
   const empLoginRes = await fetch(`${PROD_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: 'employee@livetracker.com',
+      email: 'field.officer@livetracker.com',
       password: 'EmployeePassword123!'
     })
   });
@@ -125,7 +134,7 @@ async function verifyProductionFlow() {
   console.log(`✅ Admin fetched ${adminFetchData.count} employee(s).`);
   assert.ok(adminFetchData.employees && adminFetchData.employees.length > 0, 'Employees array must not be empty');
 
-  const trackedEmp = adminFetchData.employees.find(e => e.email === 'employee@livetracker.com');
+  const trackedEmp = adminFetchData.employees.find(e => e.email === 'field.officer@livetracker.com');
   assert.ok(trackedEmp, 'Employee must be in admin list');
   console.log('Employee Details:', {
     name: trackedEmp.name,
