@@ -81,7 +81,7 @@ async function runSuite() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: 'admin@livetracker.com',
+      email: ADMIN_EMAIL,
       password: 'CompletelyWrongPassword123'
     })
   });
